@@ -6,6 +6,13 @@ development workflow.  Repo is not meant to replace Git, only to make it
 easier to work with Git.  The repo command is an executable Python script
 that you can put anywhere in your path.
 
+This fork was enhanced to add:
+1. A `repo push` command that performs an ordinary push of the topic branch on all repositories.  This allows you to
+   push the topic branches to GitHub or GitLab, where you can create a pull request or merge request and get your code
+   reviewed.  The existing `repo upload` command continues to upload to Gerrit as usual.
+2. All operations are executed in the same order as defined in the manifest file.  In particular, `repo push` and
+   `repo upload` push to the repositories in the same order that the ``<project>`` elements appear in the manifest file.
+
 * Homepage: <https://gerrit.googlesource.com/git-repo/>
 * Mailing list: [repo-discuss on Google Groups][repo-discuss]
 * Bug reports: <https://bugs.chromium.org/p/gerrit/issues/list?q=component:repo>
