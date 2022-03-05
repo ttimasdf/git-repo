@@ -1,4 +1,5 @@
 # Copyright (C) 2008 The Android Open Source Project
+# Copyright (C) 2022 Known Rabbit
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -56,6 +57,7 @@ def _SplitEmails(values):
 
 class Upload(InteractiveCommand):
   COMMON = True
+  GERRIT = True
   helpSummary = "Upload changes for code review"
   helpUsage = """
 %prog [--re --cc] [<project>]...
@@ -274,7 +276,13 @@ Gerrit Code Review:  https://www.gerritcodereview.com/
 
         if b:
           script.append('#')
-        destination = opt.dest_branch or project.dest_branch or project.revisionExpr
+        # TODO: The destination branch name is calculated twice in this file
+        #       and again in project.py.  This is not DRY.  Further, the
+        #       calculations are different.  The value calculated here is merely
+        #       used in a message.  The project.py value is actually used in a
+        #       git command and is therefore probably more reliable.
+        push_branch = None if self.GERRIT else name
+        destination = opt.dest_branch or push_branch or project.dest_branch or project.revisionExpr
         script.append('#  branch %s (%2d commit%s, %s) to remote branch %s:' % (
                       name,
                       len(commit_list),
@@ -394,7 +402,7 @@ Gerrit Code Review:  https://www.gerritcodereview.com/
               continue
 
         # Check if topic branches should be sent to the server during upload
-        if opt.auto_topic is not True:
+        if self.GERRIT and opt.auto_topic is not True:
           key = 'review.%s.uploadtopic' % branch.project.remote.review
           opt.auto_topic = branch.project.config.GetBoolean(key)
 
@@ -451,18 +459,22 @@ Gerrit Code Review:  https://www.gerritcodereview.com/
                   % destination)
             branch.uploaded = False
             continue
-
-        branch.UploadForReview(people,
-                               dryrun=opt.dryrun,
-                               auto_topic=opt.auto_topic,
-                               hashtags=hashtags,
-                               labels=labels,
-                               private=opt.private,
-                               notify=notify,
-                               wip=opt.wip,
-                               dest_branch=destination,
-                               validate_certs=opt.validate_certs,
-                               push_options=opt.push_options)
+        if self.GERRIT:
+          branch.UploadForReview(people,
+                                dryrun=opt.dryrun,
+                                auto_topic=opt.auto_topic,
+                                hashtags=hashtags,
+                                labels=labels,
+                                private=opt.private,
+                                notify=notify,
+                                wip=opt.wip,
+                                dest_branch=destination,
+                                validate_certs=opt.validate_certs,
+                                push_options=opt.push_options)
+        else:
+          branch.Push(dryrun=opt.dryrun,
+                      dest_branch=destination,
+                      push_options=opt.push_options)
 
         branch.uploaded = True
       except UploadError as e:
@@ -524,7 +536,7 @@ Gerrit Code Review:  https://www.gerritcodereview.com/
     return (project, avail)
 
   def Execute(self, opt, args):
-    projects = self.GetProjects(args)
+    projects = self.GetProjects(args, sort=self.GERRIT)
 
     def _ProcessResults(_pool, _out, results):
       pending = []
@@ -564,9 +576,12 @@ Gerrit Code Review:  https://www.gerritcodereview.com/
         worktree_list=pending_worktrees):
       return 1
 
-    reviewers = _SplitEmails(opt.reviewers) if opt.reviewers else []
-    cc = _SplitEmails(opt.cc) if opt.cc else []
-    people = (reviewers, cc)
+    if self.GERRIT:
+      reviewers = _SplitEmails(opt.reviewers) if opt.reviewers else []
+      cc = _SplitEmails(opt.cc) if opt.cc else []
+      people = (reviewers, cc)
+    else:
+      people = ([], [])
 
     if len(pending) == 1 and len(pending[0][1]) == 1:
       self._SingleBranch(opt, pending[0][1][0], people)

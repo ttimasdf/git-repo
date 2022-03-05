@@ -1,4 +1,5 @@
 # Copyright (C) 2008 The Android Open Source Project
+# Copyright (C) 2022 Known Rabbit
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -252,7 +253,7 @@ class Command(object):
     return project
 
   def GetProjects(self, args, manifest=None, groups='', missing_ok=False,
-                  submodules_ok=False):
+                  submodules_ok=False, sort=True):
     """A list of projects that match the arguments.
     """
     if not manifest:
@@ -316,7 +317,8 @@ class Command(object):
 
     def _getpath(x):
       return x.relpath
-    result.sort(key=_getpath)
+    if sort:
+      result.sort(key=_getpath)
     return result
 
   def FindProjects(self, args, inverse=False):
