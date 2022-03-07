@@ -402,46 +402,47 @@ Gerrit Code Review:  https://www.gerritcodereview.com/
               branch.error = 'User aborted'
               continue
 
-        # Check if topic branches should be sent to the server during upload
-        if self.GERRIT and opt.auto_topic is not True:
-          key = 'review.%s.uploadtopic' % branch.project.remote.review
-          opt.auto_topic = branch.project.config.GetBoolean(key)
+        if self.GERRIT:
+          # Check if topic branches should be sent to the server during upload
+          if opt.auto_topic is not True:
+            key = 'review.%s.uploadtopic' % branch.project.remote.review
+            opt.auto_topic = branch.project.config.GetBoolean(key)
 
-        def _ExpandCommaList(value):
-          """Split |value| up into comma delimited entries."""
-          if not value:
-            return
-          for ret in value.split(','):
-            ret = ret.strip()
-            if ret:
-              yield ret
+          def _ExpandCommaList(value):
+            """Split |value| up into comma delimited entries."""
+            if not value:
+              return
+            for ret in value.split(','):
+              ret = ret.strip()
+              if ret:
+                yield ret
 
-        # Check if hashtags should be included.
-        key = 'review.%s.uploadhashtags' % branch.project.remote.review
-        hashtags = set(_ExpandCommaList(branch.project.config.GetString(key)))
-        for tag in opt.hashtags:
-          hashtags.update(_ExpandCommaList(tag))
-        if opt.hashtag_branch:
-          hashtags.add(branch.name)
+          # Check if hashtags should be included.
+          key = 'review.%s.uploadhashtags' % branch.project.remote.review
+          hashtags = set(_ExpandCommaList(branch.project.config.GetString(key)))
+          for tag in opt.hashtags:
+            hashtags.update(_ExpandCommaList(tag))
+          if opt.hashtag_branch:
+            hashtags.add(branch.name)
 
-        # Check if labels should be included.
-        key = 'review.%s.uploadlabels' % branch.project.remote.review
-        labels = set(_ExpandCommaList(branch.project.config.GetString(key)))
-        for label in opt.labels:
-          labels.update(_ExpandCommaList(label))
-        # Basic sanity check on label syntax.
-        for label in labels:
-          if not re.match(r'^.+[+-][0-9]+$', label):
-            print('repo: error: invalid label syntax "%s": labels use forms '
-                  'like CodeReview+1 or Verified-1' % (label,), file=sys.stderr)
-            sys.exit(1)
+          # Check if labels should be included.
+          key = 'review.%s.uploadlabels' % branch.project.remote.review
+          labels = set(_ExpandCommaList(branch.project.config.GetString(key)))
+          for label in opt.labels:
+            labels.update(_ExpandCommaList(label))
+          # Basic sanity check on label syntax.
+          for label in labels:
+            if not re.match(r'^.+[+-][0-9]+$', label):
+              print('repo: error: invalid label syntax "%s": labels use forms '
+                    'like CodeReview+1 or Verified-1' % (label,), file=sys.stderr)
+              sys.exit(1)
 
-        # Handle e-mail notifications.
-        if opt.notify is False:
-          notify = 'NONE'
-        else:
-          key = 'review.%s.uploadnotify' % branch.project.remote.review
-          notify = branch.project.config.GetString(key)
+          # Handle e-mail notifications.
+          if opt.notify is False:
+            notify = 'NONE'
+          else:
+            key = 'review.%s.uploadnotify' % branch.project.remote.review
+            notify = branch.project.config.GetString(key)
 
         destination = opt.dest_branch or branch.project.dest_branch
 
@@ -578,7 +579,7 @@ Gerrit Code Review:  https://www.gerritcodereview.com/
                            if project.manifest.topdir == manifest.topdir]
       hook = RepoHook.FromSubcmd(
           hook_type='pre-upload', manifest=manifest,
-          opt=opt, abort_if_user_denies=True)
+          opt=opt, abort_if_user_denies=True, bypass_hooks=not self.GERRIT)
       if not hook.Run(
           project_list=pending_proj_names,
           worktree_list=pending_worktrees):
