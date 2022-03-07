@@ -45,6 +45,10 @@ revision specified in the manifest.
     p.add_option('--head', '--HEAD',
                  dest='revision', action='store_const', const='HEAD',
                  help='abbreviation for --rev HEAD')
+    p.add_option('-D', '--destination', '--dest',
+                 type='string', action='store', dest='dest_branch',
+                 metavar='BRANCH',
+                 help='Push to this target branch on the remote.')
 
   def ValidateOptions(self, opt, args):
     if not args:
@@ -54,13 +58,12 @@ revision specified in the manifest.
     if not git.check_ref_format('heads/%s' % nb):
       self.OptionParser.error("'%s' is not a valid name" % nb)
 
-  def _ExecuteOne(self, revision, nb, project):
+  def _ExecuteOne(self, revision, nb, project, branch_merge=''):
     """Start one project."""
     # If the current revision is immutable, such as a SHA1, a tag or
     # a change, then we can't push back to it. Substitute with
     # dest_branch, if defined; or with manifest default revision instead.
-    branch_merge = ''
-    if IsImmutable(project.revisionExpr):
+    if not branch_merge and IsImmutable(project.revisionExpr):
       if project.dest_branch:
         branch_merge = project.dest_branch
       else:
@@ -131,7 +134,7 @@ revision specified in the manifest.
 
     self.ExecuteInParallel(
         opt.jobs,
-        functools.partial(self._ExecuteOne, opt.revision, nb),
+        functools.partial(self._ExecuteOne, opt.revision, nb, branch_merge=opt.dest_branch),
         all_projects,
         callback=_ProcessResults,
         output=Progress('Starting %s' % (nb,), len(all_projects), quiet=opt.quiet))
