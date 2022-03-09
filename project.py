@@ -154,6 +154,19 @@ class ReviewableBranch(object):
         if self.base_exists:
           raise
 
+    if self._commit_cache is None:
+      default_remote = R_M + (self.project.remote.revision or self.project.manifest._default.revisionExpr[len(R_HEADS):])
+      args = ('--abbrev=8', '--abbrev-commit', '--pretty=oneline', '--reverse',
+              '--date-order', not_rev(default_remote), R_HEADS + self.name, '--')
+      try:
+        self._commit_cache = self.project.bare_git.rev_list(*args)
+      except GitError:
+        # We weren't able to probe the commits for this branch.  Was it tracking
+        # a branch that no longer exists?  If so, return no commits.  Otherwise,
+        # rethrow the error as we don't know what's going on.
+        if self.base_exists:
+          raise
+
         self._commit_cache = []
 
     return self._commit_cache
@@ -1087,7 +1100,7 @@ class Project(object):
       branch.remote.projectname = self.name
       branch.remote.Save()
 
-    url = branch.remote.url or branch.remote.url
+    url = branch.remote.pushUrl or branch.remote.url
     if url is None:
       raise UploadError("no remote 'url' or 'pushurl' is defined in the git configuration")
     cmd = ['push']

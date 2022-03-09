@@ -283,7 +283,7 @@ Gerrit Code Review:  https://www.gerritcodereview.com/
         #       calculations are different.  The value calculated here is merely
         #       used in a message.  The project.py value is actually used in a
         #       git command and is therefore probably more reliable.
-        push_branch = None if self.GERRIT else name
+        push_branch = None if self.GERRIT else branch.branch.merge
         destination = opt.dest_branch or push_branch or project.dest_branch or project.revisionExpr
         script.append('#  branch %s (%2d commit%s, %s) to remote branch %s:' % (
                       name,
