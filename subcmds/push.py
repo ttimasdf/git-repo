@@ -59,4 +59,7 @@ absolute path to the project's local directory. If no projects are specified,
     p.add_option('-n', '--dry-run',
                  dest='dryrun', default=False, action='store_true',
                  help='do everything except actually upload the CL')
+    p.add_option('-y', '--yes',
+                 default=False, action='store_true',
+                 help='answer yes to all safe prompts')
     RepoHook.AddOptionGroup(p, 'pre-upload')

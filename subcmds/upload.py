@@ -226,10 +226,11 @@ Gerrit Code Review:  https://www.gerritcodereview.com/
       date = branch.date
       commit_list = branch.commits
 
-      destination = opt.dest_branch or project.dest_branch or project.revisionExpr
+      push_branch = None if self.GERRIT else branch.branch.merge
+      destination = opt.dest_branch or push_branch or project.dest_branch or project.revisionExpr
       print('Upload project %s/ to remote branch %s%s:' %
             (project.RelPath(local=opt.this_manifest_only), destination,
-             ' (private)' if opt.private else ''))
+             ' (private)' if self.GERRIT and opt.private else ''))
       print('  branch %s (%2d commit%s, %s):' % (
           name,
           len(commit_list),
