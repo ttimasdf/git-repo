@@ -66,6 +66,7 @@ following DTD:
   <!ATTLIST submanifest revision       CDATA #IMPLIED>
   <!ATTLIST submanifest path           CDATA #IMPLIED>
   <!ATTLIST submanifest groups         CDATA #IMPLIED>
+  <!ATTLIST submanifest default-groups CDATA #IMPLIED>
 
   <!ELEMENT project (annotation*,
                      project*,
@@ -104,6 +105,8 @@ following DTD:
   <!ATTLIST extend-project groups CDATA #IMPLIED>
   <!ATTLIST extend-project revision CDATA #IMPLIED>
   <!ATTLIST extend-project remote CDATA #IMPLIED>
+  <!ATTLIST extend-project dest-branch CDATA #IMPLIED>
+  <!ATTLIST extend-project upstream CDATA #IMPLIED>
 
   <!ELEMENT remove-project EMPTY>
   <!ATTLIST remove-project name  CDATA #REQUIRED>
@@ -302,6 +305,9 @@ in the included submanifest belong. This appends and recurses, meaning
 all projects in submanifests carry all parent submanifest groups.
 Same syntax as the corresponding element of `project`.
 
+Attribute `default-groups`: The list of manifest groups to sync if no
+`--groups=` parameter was specified at init.  When that list is empty, use this
+list instead of "default" as the list of groups to sync.
 
 ### Element project
 
@@ -417,6 +423,12 @@ Attribute `revision`: If specified, overrides the revision of the original
 project.  Same syntax as the corresponding element of `project`.
 
 Attribute `remote`: If specified, overrides the remote of the original
+project.  Same syntax as the corresponding element of `project`.
+
+Attribute `dest-branch`: If specified, overrides the dest-branch of the original
+project.  Same syntax as the corresponding element of `project`.
+
+Attribute `upstream`: If specified, overrides the upstream of the original
 project.  Same syntax as the corresponding element of `project`.
 
 ### Element annotation

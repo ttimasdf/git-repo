@@ -24,7 +24,6 @@ from unittest import mock
 import git_superproject
 import git_trace2_event_log
 import manifest_xml
-import platform_utils
 from test_manifest_xml import sort_attributes
 
 
@@ -38,7 +37,8 @@ class SuperprojectTestCase(unittest.TestCase):
 
   def setUp(self):
     """Set up superproject every time."""
-    self.tempdir = tempfile.mkdtemp(prefix='repo_tests')
+    self.tempdirobj = tempfile.TemporaryDirectory(prefix='repo_tests')
+    self.tempdir = self.tempdirobj.name
     self.repodir = os.path.join(self.tempdir, '.repo')
     self.manifest_file = os.path.join(
         self.repodir, manifest_xml.MANIFEST_FILE_NAME)
@@ -68,12 +68,14 @@ class SuperprojectTestCase(unittest.TestCase):
   <project path="art" name="platform/art" groups="notdefault,platform-""" + self.platform + """
   " /></manifest>
 """)
-    self._superproject = git_superproject.Superproject(manifest, self.repodir,
-                                                       self.git_event_log)
+    self._superproject = git_superproject.Superproject(
+        manifest, name='superproject',
+        remote=manifest.remotes.get('default-remote').ToRemoteSpec('superproject'),
+        revision='refs/heads/main')
 
   def tearDown(self):
     """Tear down superproject every time."""
-    platform_utils.rmtree(self.tempdir)
+    self.tempdirobj.cleanup()
 
   def getXmlManifest(self, data):
     """Helper to initialize a manifest for testing."""
@@ -125,12 +127,7 @@ class SuperprojectTestCase(unittest.TestCase):
 <manifest>
 </manifest>
 """)
-    superproject = git_superproject.Superproject(manifest, self.repodir, self.git_event_log)
-    # Test that exit condition is false when there is no superproject tag.
-    sync_result = superproject.Sync()
-    self.assertFalse(sync_result.success)
-    self.assertFalse(sync_result.fatal)
-    self.verifyErrorEvent()
+    self.assertIsNone(manifest.superproject)
 
   def test_superproject_get_superproject_invalid_url(self):
     """Test with an invalid url."""
@@ -141,8 +138,11 @@ class SuperprojectTestCase(unittest.TestCase):
   <superproject name="superproject"/>
 </manifest>
 """)
-    superproject = git_superproject.Superproject(manifest, self.repodir, self.git_event_log)
-    sync_result = superproject.Sync()
+    superproject = git_superproject.Superproject(
+        manifest, name='superproject',
+        remote=manifest.remotes.get('test-remote').ToRemoteSpec('superproject'),
+        revision='refs/heads/main')
+    sync_result = superproject.Sync(self.git_event_log)
     self.assertFalse(sync_result.success)
     self.assertTrue(sync_result.fatal)
 
@@ -155,17 +155,19 @@ class SuperprojectTestCase(unittest.TestCase):
   <superproject name="superproject"/>
 </manifest>
 """)
-    self._superproject = git_superproject.Superproject(manifest, self.repodir,
-                                                       self.git_event_log)
+    self._superproject = git_superproject.Superproject(
+        manifest, name='superproject',
+        remote=manifest.remotes.get('test-remote').ToRemoteSpec('superproject'),
+        revision='refs/heads/main')
     with mock.patch.object(self._superproject, '_branch', 'junk'):
-      sync_result = self._superproject.Sync()
+      sync_result = self._superproject.Sync(self.git_event_log)
       self.assertFalse(sync_result.success)
       self.assertTrue(sync_result.fatal)
 
   def test_superproject_get_superproject_mock_init(self):
     """Test with _Init failing."""
     with mock.patch.object(self._superproject, '_Init', return_value=False):
-      sync_result = self._superproject.Sync()
+      sync_result = self._superproject.Sync(self.git_event_log)
       self.assertFalse(sync_result.success)
       self.assertTrue(sync_result.fatal)
 
@@ -174,7 +176,7 @@ class SuperprojectTestCase(unittest.TestCase):
     with mock.patch.object(self._superproject, '_Init', return_value=True):
       os.mkdir(self._superproject._superproject_path)
       with mock.patch.object(self._superproject, '_Fetch', return_value=False):
-        sync_result = self._superproject.Sync()
+        sync_result = self._superproject.Sync(self.git_event_log)
         self.assertFalse(sync_result.success)
         self.assertTrue(sync_result.fatal)
 
@@ -230,7 +232,7 @@ class SuperprojectTestCase(unittest.TestCase):
                                return_value=data):
           # Create temporary directory so that it can write the file.
           os.mkdir(self._superproject._superproject_path)
-          update_result = self._superproject.UpdateProjectsRevisionId(projects)
+          update_result = self._superproject.UpdateProjectsRevisionId(projects, self.git_event_log)
           self.assertIsNotNone(update_result.manifest_path)
           self.assertFalse(update_result.fatal)
           with open(update_result.manifest_path, 'r') as fp:
@@ -256,22 +258,13 @@ class SuperprojectTestCase(unittest.TestCase):
 </manifest>
 """)
     self.maxDiff = None
-    self._superproject = git_superproject.Superproject(manifest, self.repodir,
-                                                       self.git_event_log)
-    self.assertEqual(len(self._superproject._manifest.projects), 1)
-    projects = self._superproject._manifest.projects
-    project = projects[0]
-    project.SetRevisionId('ABCDEF')
-    update_result = self._superproject.UpdateProjectsRevisionId(projects)
-    self.assertIsNone(update_result.manifest_path)
-    self.assertFalse(update_result.fatal)
-    self.verifyErrorEvent()
+    self.assertIsNone(manifest.superproject)
     self.assertEqual(
         sort_attributes(manifest.ToXml().toxml()),
         '<?xml version="1.0" ?><manifest>'
         '<remote fetch="http://localhost" name="default-remote"/>'
         '<default remote="default-remote" revision="refs/heads/main"/>'
-        '<project name="test-name" revision="ABCDEF" upstream="refs/heads/main"/>'
+        '<project name="test-name"/>'
         '</manifest>')
 
   def test_superproject_update_project_revision_id_from_local_manifest_group(self):
@@ -290,8 +283,10 @@ class SuperprojectTestCase(unittest.TestCase):
   " /></manifest>
 """)
     self.maxDiff = None
-    self._superproject = git_superproject.Superproject(manifest, self.repodir,
-                                                       self.git_event_log)
+    self._superproject = git_superproject.Superproject(
+        manifest, name='superproject',
+        remote=manifest.remotes.get('default-remote').ToRemoteSpec('superproject'),
+        revision='refs/heads/main')
     self.assertEqual(len(self._superproject._manifest.projects), 2)
     projects = self._superproject._manifest.projects
     data = ('160000 commit 2c2724cb36cd5a9cec6c852c681efc3b7c6b86ea\tart\x00')
@@ -302,7 +297,7 @@ class SuperprojectTestCase(unittest.TestCase):
                                return_value=data):
           # Create temporary directory so that it can write the file.
           os.mkdir(self._superproject._superproject_path)
-          update_result = self._superproject.UpdateProjectsRevisionId(projects)
+          update_result = self._superproject.UpdateProjectsRevisionId(projects, self.git_event_log)
           self.assertIsNotNone(update_result.manifest_path)
           self.assertFalse(update_result.fatal)
           with open(update_result.manifest_path, 'r') as fp:
@@ -317,9 +312,6 @@ class SuperprojectTestCase(unittest.TestCase):
               '<project groups="notdefault,platform-' + self.platform + '" '
               'name="platform/art" path="art" '
               'revision="2c2724cb36cd5a9cec6c852c681efc3b7c6b86ea" upstream="refs/heads/main"/>'
-              '<project clone-depth="1" groups="' + local_group + '" '
-              'name="platform/vendor/x" path="vendor/x" remote="goog" '
-              'revision="master-with-vendor"/>'
               '<superproject name="superproject"/>'
               '</manifest>')
 
@@ -337,8 +329,10 @@ class SuperprojectTestCase(unittest.TestCase):
   " /></manifest>
 """)
     self.maxDiff = None
-    self._superproject = git_superproject.Superproject(manifest, self.repodir,
-                                                       self.git_event_log)
+    self._superproject = git_superproject.Superproject(
+        manifest, name='superproject',
+        remote=manifest.remotes.get('default-remote').ToRemoteSpec('superproject'),
+        revision='refs/heads/main')
     self.assertEqual(len(self._superproject._manifest.projects), 3)
     projects = self._superproject._manifest.projects
     data = ('160000 commit 2c2724cb36cd5a9cec6c852c681efc3b7c6b86ea\tart\x00'
@@ -350,7 +344,7 @@ class SuperprojectTestCase(unittest.TestCase):
                                return_value=data):
           # Create temporary directory so that it can write the file.
           os.mkdir(self._superproject._superproject_path)
-          update_result = self._superproject.UpdateProjectsRevisionId(projects)
+          update_result = self._superproject.UpdateProjectsRevisionId(projects, self.git_event_log)
           self.assertIsNotNone(update_result.manifest_path)
           self.assertFalse(update_result.fatal)
           with open(update_result.manifest_path, 'r') as fp:
