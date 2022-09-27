@@ -62,4 +62,10 @@ absolute path to the project's local directory. If no projects are specified,
     p.add_option('-y', '--yes',
                  default=False, action='store_true',
                  help='answer yes to all safe prompts')
+    p.add_option('--ignore-untracked-files',
+                 action='store_true', default=False,
+                 help='ignore untracked files in the working copy')
+    p.add_option('--no-ignore-untracked-files',
+                 dest='ignore_untracked_files', action='store_false',
+                 help='always ask about untracked files in the working copy')
     RepoHook.AddOptionGroup(p, 'pre-upload')
